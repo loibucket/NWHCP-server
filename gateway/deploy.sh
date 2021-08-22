@@ -10,8 +10,7 @@ export REDISADDR=myredis:6379
 export SESSIONKEY="key"
 export SERVER2ADDR="http://organizations:5000"
 export INTERNAL_PORT=:90
-export DBADDR=nwhcp-mongo:27017
-
+# export DBADDR=nwhcp-mongo:27017
 # docker rm -f helloservertest;
 
 # docker run -d --name myredis --network nwhcp-docker_default redis;
@@ -27,11 +26,14 @@ export DBADDR=nwhcp-mongo:27017
 # -e MYSQL_DATABASE=$MYSQL_DATABASE \
 # annaqzhou/nwhcp-sqldb;
 
-docker rm -f gateway; # mostly for testing because have to remove docker img every tiime you redeploy
-docker pull annaqzhou/nwhcp-gateway; # pull image from dockerhub
+# docker pull annaqzhou/nwhcp-gateway; # pull image from dockerhub
+
+GOOS=linux go build
+docker build -t loibucket/nwhcp-gateway . # update to your username/nwhcp-gateway
+docker rm -f gateway; # mostly for testing because have to remove docker img every time you redeploy
 
 # Run server from docker img
-docker run -d -p 443:443 \
+docker run -p 443:443 \
 -v /etc/letsencrypt:/etc/letsencrypt:ro \
 -e TLSCERT=$TLSCERT \
 -e TLSKEY=$TLSKEY \
@@ -41,6 +43,5 @@ docker run -d -p 443:443 \
 -e DSN=root:$MYSQL_ROOT_PASSWORD@tcp\(nwhcp-sqldb:3306\)/$MYSQL_DATABASE \
 -e SERVER2ADDR=$SERVER2ADDR \
 -e INTERNAL_PORT=$INTERNAL_PORT \
--e DBADDR=$DBADDR \
 --network nwhcp-docker_default \
---name gateway annaqzhou/nwhcp-gateway;
+--name gateway loibucket/nwhcp-gateway;

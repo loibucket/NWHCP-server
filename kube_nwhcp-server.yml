@@ -1,0 +1,115 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  namespace: findat
+  name: ng-findat-deploy ## should be unique
+spec:
+  selector:
+    matchLabels:
+      app: ng-findat ## match with service
+  replicas: 1
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 1
+      maxSurge: 1
+  template:
+    metadata:
+      labels:
+        app: ng-findat ## match with service
+    spec:
+      nodeSelector:
+        arch: arm64
+      imagePullSecrets:
+        - name: gitlab-registry
+      containers:
+        - name: ng-findat-docker ## should be unique
+          image: registry.gitlab.com/loibucket/findat/findat-app:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 80 ## match localhost port
+              name: http
+          resources:
+            requests:
+              memory: "10Mi"
+              cpu: "10m"
+            limits:
+              memory: "200Mi"
+              cpu: "200m"
+          volumeMounts:
+            - name: aws-config
+              mountPath: "/aws-config"
+              readOnly: true
+            - name: aws-credentials
+              mountPath: "/aws-credentials"
+              readOnly: true
+          envFrom:
+            - secretRef:
+                name: ng-findat-env
+      volumes:
+        - name: aws-config
+          secret:
+            secretName: aws-config
+        - name: aws-credentials
+          secret:
+            secretName: aws-credentials
+      affinity:
+        podAntiAffinity: ## spread pods across nodes
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - labelSelector:
+                matchExpressions:
+                  - key: app
+                    operator: In
+                    values:
+                      - ng-findat
+              topologyKey: "kubernetes.io/hostname"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  namespace: findat
+  name: ng-findat-service ## should be unique
+spec:
+  selector:
+    app: ng-findat ## match with service
+  type: NodePort
+  ports:
+    - port: 80
+      targetPort: 80
+      protocol: TCP
+      name: http
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  namespace: findat
+  name: ng-findat-ingress-tls
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+spec:
+  tls:
+    - hosts:
+        - findat.us
+        - www.findat.us
+      secretName: findat-tls
+  rules:
+    - host: findat.us
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: ng-findat-service
+                port:
+                  number: 80
+    - host: www.findat.us
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: ng-findat-service
+                port:
+                  number: 80

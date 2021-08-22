@@ -1,10 +1,7 @@
 package main
 
 import (
-	// "NWHCP/NWHCP-server/gateway/handlers"
-	// "NWHCP/NWHCP-server/gateway/models/users"
-	// "NWHCP/NWHCP-server/gateway/sessions"
-
+	"context"
 	"database/sql"
 	"encoding/json"
 	"fmt"
@@ -24,10 +21,10 @@ import (
 	"github.com/go-redis/redis"
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/gorilla/mux"
-	"gopkg.in/mgo.v2"
-	// "github.com/nwhcp-server/gateway/handlers"
-	// "github.com/nwhcp-server/gateway/models/users"
-	// "github.com/nwhcp-server/gateway/sessions"
+
+	"github.com/joho/godotenv"
+	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 type Director func(r *http.Request)
@@ -55,6 +52,11 @@ func CustomDirector(target []*url.URL, signingKey string, sessionStore sessions.
 }
 
 func main() {
+	// load .env file from given path
+	err := godotenv.Load(".env")
+	if err != nil {
+		log.Fatalf("Error loading .env file")
+	}
 	addr := os.Getenv("ADDR")
 	cert := os.Getenv("TLSCERT")
 	key := os.Getenv("TLSKEY")
@@ -72,16 +74,20 @@ func main() {
 	if len(dbAddr) == 0 {
 		dbAddr = "localhost:27017"
 	}
-	log.Printf("DBADDR: %s", dbAddr)
 
-	mongoSession, err := mgo.Dial(dbAddr)
+	// mongodb driver boilerplate
+	clientOptions := options.Client().
+		ApplyURI(os.Getenv("DBADDR"))
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	mongoSession, err := mongo.Connect(ctx, clientOptions)
 	if err != nil {
 		fmt.Println("Error dialing dbaddr: ", err)
 	} else {
 		fmt.Println("Success!")
 	}
-	//schoolStore, err := stores.NewSchoolStore(mongoSession, "mongodb", "school")
-	orgStore, err := orgs.NewOrgStore(mongoSession, "mongodb", "organization")
+
+	orgStore, err := orgs.NewOrgStore(mongoSession, os.Getenv("DBNAME"), os.Getenv("ORGCOL"))
 
 	hctx := &handlers.HandlerContext{
 		OrgStore: orgStore,

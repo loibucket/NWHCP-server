@@ -1,0 +1,28 @@
+#.gitlab-ci
+
+variables:
+  # keep these values
+  DOCKER_HOST: tcp://docker:2375/
+  DOCKER_TLS_CERTDIR: "" ## disables tls
+  DOCKER_DRIVER: overlay2
+  GITLAB_REGISTRY: registry.gitlab.com
+  # change below variables
+  GITLAB_IMAGE_PIPELINE: registry.gitlab.com/loibucket/findat/findat-app:findat-app-${CI_COMMIT_BRANCH}-${CI_PIPELINE_IID}
+  # GITLAB_IMAGE_PIPELINE: registry.gitlab.com/loibucket/findat/findat-app:findat-app-main-15
+  GITLAB_IMAGE_LATEST: registry.gitlab.com/loibucket/findat/findat-app:latest
+  DOCKERFILE: docker-findat-app.dockerfile
+  KUBE_YML: kube-findat-app.yml
+
+# change build name
+# keep everything else
+build:findat-app:
+  stage: build
+  rules:
+    - when: always
+  image: loibucket/docker-k8s:latest
+  services:
+    - docker:dind
+  script:
+    - sh ci-docker.sh
+    - sh ci-kube.sh
+#
